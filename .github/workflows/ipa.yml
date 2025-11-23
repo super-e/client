@@ -21,22 +21,13 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo $PROVISIONING_PROFILE_BASE64 | base64 -D > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
-      - name: Create keychain and import certificate
+      - name: Install certificate and provisioning profile
         env:
           CERTIFICATE_BASE64: ${{ secrets.CERTIFICATE_BASE64 }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          # Create temporary keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -lut 3600 build.keychain
-          
-          # Import certificate (.cer file)
+          # Import certificate to default keychain
           echo $CERTIFICATE_BASE64 | base64 -D > certificate.cer
-          security import certificate.cer -k build.keychain -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" build.keychain
-          
+          security import certificate.cer -t agg -k ~/Library/Keychains/login.keychain -P "" -A
           rm certificate.cer
 
       - name: Build archive
@@ -66,8 +57,3 @@ jobs:
         with:
           name: signed-ipa
           path: build/ipa/YourApp.ipa
-
-      - name: Clean up keychain
-        if: always()
-        run: |
-          security delete-keychain build.keychain 2>/dev/null || true
