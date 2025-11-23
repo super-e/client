@@ -2,7 +2,7 @@ name: Build Signed iOS IPA
 
 on:
   push:
-    branches: [ nostr ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -13,6 +13,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'latest'
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
 
       - name: Create provisioning profile
         env:
@@ -31,6 +39,8 @@ jobs:
           rm certificate.cer
 
       - name: Build archive
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
         run: |
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
@@ -38,6 +48,7 @@ jobs:
             -configuration Release \
             -derivedDataPath build \
             -archivePath build/Runner.xcarchive \
+            -DEVELOPMENT_TEAM=$DEVELOPMENT_TEAM \
             archive
 
       - name: Export signed IPA
@@ -47,7 +58,7 @@ jobs:
           echo $EXPORT_OPTIONS_PLIST_BASE64 | base64 -D > ExportOptions.plist
           xcodebuild \
             -exportArchive \
-            -archivePath build/YourApp.xcarchive \
+            -archivePath build/Runner.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
             -exportPath build/ipa
           rm ExportOptions.plist
@@ -56,4 +67,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: signed-ipa
-          path: build/ipa/YourApp.ipa
+          path: build/ipa/Runner.ipa
