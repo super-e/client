@@ -2,7 +2,7 @@ name: Build Signed iOS IPA
 
 on:
   push:
-    branches: [ main ]
+    branches: [ nostr ]
   pull_request:
     branches: [ main ]
 
