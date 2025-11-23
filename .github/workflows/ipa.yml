@@ -33,11 +33,11 @@ jobs:
       - name: Build archive
         run: |
           xcodebuild \
-            -workspace ios/YourApp.xcworkspace \
-            -scheme YourApp \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
             -configuration Release \
             -derivedDataPath build \
-            -archivePath build/YourApp.xcarchive \
+            -archivePath build/Runner.xcarchive \
             archive
 
       - name: Export signed IPA
