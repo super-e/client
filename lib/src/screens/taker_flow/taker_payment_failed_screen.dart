@@ -2,9 +2,11 @@ import '../../../i18n/gen/strings.g.dart'; // Corrected Slang import
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart'; // Import GoRouter
+import 'package:ndk/shared/logger/logger.dart';
 
 import '../../models/offer.dart';
 import '../../providers/providers.dart';
+import '../../widgets/progress_indicators.dart';
 
 // Enum to manage screen state
 enum PaymentRetryState { initial, loading, success, failed }
@@ -16,16 +18,31 @@ class TakerPaymentFailedScreen extends ConsumerStatefulWidget {
   const TakerPaymentFailedScreen({super.key, required this.offer});
 
   @override
-  ConsumerState<TakerPaymentFailedScreen> createState() =>
-      _TakerPaymentFailedScreenState();
+  ConsumerState<TakerPaymentFailedScreen> createState() => _TakerPaymentFailedScreenState();
 }
 
-class _TakerPaymentFailedScreenState
-    extends ConsumerState<TakerPaymentFailedScreen> {
+class _TakerPaymentFailedScreenState extends ConsumerState<TakerPaymentFailedScreen> {
   // State class
   final _bolt11Controller = TextEditingController();
   PaymentRetryState _currentState = PaymentRetryState.initial; // Initial state
   String? _errorMessage; // To store error messages
+
+  void _handleStatusUpdate(OfferStatus? status) {
+    if (status == null) return;
+
+    if (mounted) {
+      if (status == OfferStatus.takerPaid) {
+        setState(() {
+          _currentState = PaymentRetryState.success;
+        });
+      } else if (status == OfferStatus.takerPaymentFailed) {
+        setState(() {
+          _currentState = PaymentRetryState.failed;
+          // _errorMessage = t.taker.paymentFailed.errors.paymentRetryFailed;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -36,9 +53,9 @@ class _TakerPaymentFailedScreenState
   Future<void> _retryPayment() async {
     final newInvoice = _bolt11Controller.text.trim();
     if (newInvoice.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t.taker.paymentFailed.errors.enterValidInvoice)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.taker.paymentFailed.errors.enterValidInvoice)));
       return;
     }
 
@@ -62,63 +79,27 @@ class _TakerPaymentFailedScreenState
         offerId: widget.offer.id,
         newBolt11: newInvoice,
         userPubkey: userPubkey,
+        coordinatorPubkey: widget.offer.coordinatorPubkey,
       );
 
       // 2. Trigger the retry mechanism on the backend
-      await apiService.retryTakerPayment(
+      Map<String, dynamic> result = await apiService.retryTakerPayment(
         offerId: widget.offer.id,
         userPubkey: userPubkey,
+        coordinatorPubkey: widget.offer.coordinatorPubkey,
       );
 
-      // 3. Poll for the final status (success or persistent failure)
-      bool isFinalState = false;
-      String? finalStatus;
-      int attempts = 0;
-      const maxAttempts = 15; // Poll for ~30 seconds
-
-      while (!isFinalState && attempts < maxAttempts && mounted) {
-        attempts++;
-        await Future.delayed(const Duration(seconds: 2));
-        // Ensure still mounted after delay
-        if (!mounted) return;
-
-        final currentStatus = await apiService.getOfferStatus(
-          widget.offer.holdInvoicePaymentHash ?? '',
-        );
-
-        if (currentStatus == OfferStatus.takerPaid.name) {
-          isFinalState = true;
-          finalStatus = currentStatus;
-        } else if (currentStatus == OfferStatus.takerPaymentFailed.name) {
-          // Still failed after retry attempt, stop polling
-          isFinalState = true;
-          finalStatus = currentStatus;
-        }
-        // Continue polling if status is unchanged or in an intermediate state
-      }
-
-      // Update UI based on polling result, only if still mounted
       if (mounted) {
-        if (finalStatus == OfferStatus.takerPaid.name) {
-          setState(() {
-            _currentState = PaymentRetryState.success; // Set success state
-          });
-        } else {
-          // Still failed or timed out
-          setState(() {
-            _currentState = PaymentRetryState.failed; // Set failed state
-            _errorMessage = t.taker.paymentFailed.errors.paymentRetryFailed;
-          });
-        }
+        setState(() {
+          _currentState = PaymentRetryState.loading; // Keep loading while waiting for status
+        });
       }
     } catch (e) {
       // Handle API errors or other exceptions, only if still mounted
       if (mounted) {
         setState(() {
           _currentState = PaymentRetryState.failed; // Set failed state on error
-          _errorMessage = t.taker.paymentFailed.errors.updatingInvoice(
-            details: e.toString(),
-          );
+          _errorMessage = t.taker.paymentFailed.errors.updatingInvoice(details: e.toString());
         });
       }
     }
@@ -126,26 +107,31 @@ class _TakerPaymentFailedScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Listen to the activeOfferProvider for status changes
+    ref.listen<Offer?>(activeOfferProvider, (previous, next) {
+      if (next != null && next.id == widget.offer.id) {
+        try {
+          final status = OfferStatus.values.byName(next.status);
+          _handleStatusUpdate(status);
+        } catch (e) {
+          Logger.log.e("Error parsing offer status in TakerPaymentFailedScreen: $e");
+        }
+      }
+    });
+
     // Calculate net amount (moved here for access to widget.offer)
-    final takerFees =
-        widget.offer.takerFees ?? (widget.offer.amountSats * 0.005).ceil();
+    final takerFees = widget.offer.takerFees ?? (widget.offer.amountSats * 0.005).ceil();
     final netAmountSats = widget.offer.amountSats - takerFees;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _currentState == PaymentRetryState.success
-              ? t.taker.paymentFailed.success.title
-              : t.taker.paymentFailed.title,
-        ),
-        automaticallyImplyLeading: _currentState != PaymentRetryState.success,
-      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: SingleChildScrollView(
-            child: _buildContent(context, netAmountSats),
-          ),
+        child: Column(
+          children: [
+            const TakerProgressIndicator(activeStep: 3),
+            const SizedBox(height: 24),
+            _buildContent(context, netAmountSats),
+          ],
         ),
       ),
     );
@@ -157,9 +143,10 @@ class _TakerPaymentFailedScreenState
       case PaymentRetryState.loading:
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
+            // const CircularProgressIndicator(),
+            // const SizedBox(height: 16),
             Text(t.taker.paymentFailed.loading.processingPayment),
           ],
         );
@@ -169,11 +156,7 @@ class _TakerPaymentFailedScreenState
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(
-              Icons.check_circle_outline,
-              color: Colors.green,
-              size: 64,
-            ),
+            const Icon(Icons.check_circle_outline, color: Colors.green, size: 64),
             const SizedBox(height: 16),
             Text(
               t.taker.paymentFailed.success.title,
@@ -181,15 +164,11 @@ class _TakerPaymentFailedScreenState
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            Text(
-              t.taker.paymentFailed.success.message,
-              textAlign: TextAlign.center,
-            ),
+            Text(t.taker.paymentFailed.success.message, textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
-                ref.read(activeOfferProvider.notifier).state = null;
-                ref.read(appRoleProvider.notifier).state = AppRole.none;
+              onPressed: () async {
+                await ref.read(activeOfferProvider.notifier).setActiveOffer(null);
                 if (mounted) {
                   context.go('/');
                 }
@@ -205,34 +184,24 @@ class _TakerPaymentFailedScreenState
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(
-              Icons.error_outline,
-              color: Theme.of(context).colorScheme.error,
-              size: 64,
-            ),
+            Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error, size: 64),
             const SizedBox(height: 16),
             Text(
               t.taker.paymentFailed.title,
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
-            if (widget.offer.takerLightningAddress != null &&
-                widget.offer.takerLightningAddress!.isNotEmpty)
+            if (widget.offer.takerLightningAddress != null && widget.offer.takerLightningAddress!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
                 child: Text(
-                  t.lightningAddress.labels.short(
-                    address: widget.offer.takerLightningAddress!,
-                  ), // Corrected key
+                  t.lightningAddress.labels.short(address: widget.offer.takerLightningAddress!), // Corrected key
                   textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.blueGrey),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.blueGrey),
                 ),
               ),
             const SizedBox(height: 16),
-            if (_currentState == PaymentRetryState.failed &&
-                _errorMessage != null)
+            if (_currentState == PaymentRetryState.failed && _errorMessage != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16.0),
                 child: Text(
@@ -258,10 +227,7 @@ class _TakerPaymentFailedScreenState
               maxLines: 3,
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _retryPayment,
-              child: Text(t.taker.paymentFailed.actions.retryPayment),
-            ),
+            ElevatedButton(onPressed: _retryPayment, child: Text(t.taker.paymentFailed.actions.retryPayment)),
           ],
         );
     }
