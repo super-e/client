@@ -484,7 +484,7 @@ class NostrService {
       kinds: [KIND_OFFER],
       tags: {
         "#f": ["PLN"],
-        //        "#s": ['pending'],
+        "#s": ['pending'],
         "#y": ["Bitblik"],
         // "#pm": ["BLIK"],
       },
