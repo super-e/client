@@ -1,6 +1,6 @@
 # Bitblik client
 
-see https://github.com/bitblik/client/blob/main/assets/faq/faq_en.md
+see https://github.com/bit-blik/client/blob/main/assets/faq/faq_en.md
 
 
 # Docker Runtime Configuration for Group Links

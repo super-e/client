@@ -891,7 +891,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                       children: [
                         InkWell(
                           onTap: () async {
-                            final Uri url = Uri.parse('https://github.com/bitblik/client/releases');
+                            final Uri url = Uri.parse('https://github.com/bit-blik/client/releases');
                             if (await canLaunchUrl(url)) {
                               await launchUrl(url);
                             } else {
