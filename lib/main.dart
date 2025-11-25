@@ -831,94 +831,97 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
       ),
       body: _buildBody(widget.body),
       endDrawer: _buildNekoDrawer(context, publicKeyAsync),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Divider(),
+      bottomNavigationBar: SizedBox(
+        height: 70,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Divider(),
 
-            // Version, GitHub link, and download buttons on the same line
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Version and GitHub link on the left
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: InkWell(
-                          // onTap: () async {
-                          //   final Uri url = Uri.parse('https://github.com/bitblik-user/client/releases');
-                          //   await launchUrl(url, mode: LaunchMode.externalApplication);
-                          // },
-                          child: Text(
-                            _clientVersion != null ? 'v$_clientVersion' : '',
-                            style: const TextStyle(fontSize: 12, color: Colors.black45),
+              // Version, GitHub link, and download buttons on the same line
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Version and GitHub link on the left
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: InkWell(
+                            // onTap: () async {
+                            //   final Uri url = Uri.parse('https://github.com/bitblik-user/client/releases');
+                            //   await launchUrl(url, mode: LaunchMode.externalApplication);
+                            // },
+                            child: Text(
+                              _clientVersion != null ? 'v$_clientVersion' : '',
+                              style: const TextStyle(fontSize: 12, color: Colors.black45),
+                            ),
                           ),
                         ),
-                      ),
-                      // const SizedBox(width: 16),
-                      // InkWell(
-                      //   onTap: () async {
-                      //     final Uri url = Uri.parse('https://github.com/bitblik-user/client');
-                      //     await launchUrl(url, mode: LaunchMode.externalApplication);
-                      //   },
-                      //   child: Image.asset('assets/github.png', width: 20, height: 20),
-                      // ),
-                      // const SizedBox(width: 8),
-                      InkWell(
-                        onTap: () async {
-                          final Uri url = Uri.parse(
-                            'https://njump.to/npub1k3g092rlzvn7nftz3jte9pkx63zp705nh78r6hjpjm55fjg7r2cqx8stj3',
-                          );
-                          await launchUrl(url, mode: LaunchMode.externalApplication);
-                        },
-                        child: Image.asset('assets/nostr.png', width: 32, height: 32),
-                      ),
-                    ],
-                  ),
-                  // Download buttons on the right (only when on web Android)
-                  if (PlatformDetection.isWebAndroid)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
+                        // const SizedBox(width: 16),
+                        // InkWell(
+                        //   onTap: () async {
+                        //     final Uri url = Uri.parse('https://github.com/bitblik-user/client');
+                        //     await launchUrl(url, mode: LaunchMode.externalApplication);
+                        //   },
+                        //   child: Image.asset('assets/github.png', width: 20, height: 20),
+                        // ),
+                        // const SizedBox(width: 8),
                         InkWell(
                           onTap: () async {
-                            final Uri url = Uri.parse('https://github.com/bit-blik/client/releases');
-                            if (await canLaunchUrl(url)) {
-                              await launchUrl(url);
-                            } else {
-                              if (mounted) {
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).showSnackBar(SnackBar(content: Text('Could not open APK link.')));
-                              }
-                            }
+                            final Uri url = Uri.parse(
+                              'https://njump.to/npub1k3g092rlzvn7nftz3jte9pkx63zp705nh78r6hjpjm55fjg7r2cqx8stj3',
+                            );
+                            await launchUrl(url, mode: LaunchMode.externalApplication);
                           },
-                          child: Image.asset('assets/apk.png', width: 100, height: 31, fit: BoxFit.contain),
+                          child: Image.asset('assets/nostr.png', width: 32, height: 32),
                         ),
-                        const SizedBox(width: 16),
-                        InkWell(
-                          onTap: () async {
-                            final Uri url = Uri.parse('zapstore://app.bitblik');
-                            await launchUrl(url);
-                          },
-                          child: Image.asset('assets/zapstore.png', width: 100, height: 31, fit: BoxFit.contain),
-                        ),
-                        const SizedBox(width: 8),
                       ],
                     ),
-                ],
+                    // Download buttons on the right (only when on web Android)
+                    if (PlatformDetection.isWebAndroid)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          InkWell(
+                            onTap: () async {
+                              final Uri url = Uri.parse('https://github.com/bit-blik/client/releases');
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url);
+                              } else {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(
+                                    context,
+                                  ).showSnackBar(SnackBar(content: Text('Could not open APK link.')));
+                                }
+                              }
+                            },
+                            child: Image.asset('assets/apk.png', width: 100, height: 31, fit: BoxFit.contain),
+                          ),
+                          const SizedBox(width: 16),
+                          InkWell(
+                            onTap: () async {
+                              final Uri url = Uri.parse('zapstore://app.bitblik');
+                              await launchUrl(url);
+                            },
+                            child: Image.asset('assets/zapstore.png', width: 100, height: 31, fit: BoxFit.contain),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
