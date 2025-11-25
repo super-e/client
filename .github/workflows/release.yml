@@ -41,13 +41,22 @@ jobs:
         with:
           name: "app-x86_64-release.apk"
           path: "build/app/outputs/flutter-apk/app-x86_64-release.apk"
-      - name: Upload assets
-        uses: softprops/action-gh-release@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          token: ${{ secrets.RELEASE_TOKEN }}
-          files: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-            build/app/outputs/flutter-apk/app-x86_64-release.apk
+      - name: Debug API call
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          curl -v -X POST \
+            -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/releases \
+            -d '{"tag_name":"${{ github.ref_name }}","name":"Release ${{ github.ref_name }}","draft":false,"prerelease":false}'
+#      - name: Upload assets
+#        uses: softprops/action-gh-release@v1
+##        env:
+##          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          token: ${{ secrets.RELEASE_TOKEN }}
+#          files: |
+#            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+#            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+#            build/app/outputs/flutter-apk/app-x86_64-release.apk
