@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io' show Platform; // Import Platform
 
 import 'package:app_links/app_links.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:bitblik/src/screens/maker_flow/maker_confirm_payment_screen.dart';
 import 'package:bitblik/src/screens/maker_flow/maker_invalid_blik_screen.dart';
 import 'package:bitblik/src/screens/maker_flow/maker_pay_invoice_screen.dart';
@@ -13,15 +12,14 @@ import 'package:bitblik/src/screens/taker_flow/taker_invalid_blik_screen.dart';
 import 'package:bitblik/src/screens/taker_flow/taker_payment_failed_screen.dart';
 import 'package:bitblik/src/screens/taker_flow/taker_payment_process_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode; // Import kIsWeb
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // Keep for GlobalMaterialLocalizations.delegates
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ndk/shared/logger/logger.dart';
-import 'package:ndk/shared/nips/nip19/nip19.dart';
 import 'package:ndk_rust_verifier/data_layer/repositories/verifiers/rust_event_verifier.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,20 +30,20 @@ import 'package:url_launcher/url_launcher.dart';
 import 'i18n/gen/strings.g.dart'; // Import Slang from new path
 import 'src/models/offer.dart'; // Needed for OfferStatus enum
 import 'src/providers/providers.dart';
+import 'src/screens/coordinator_management_screen.dart';
 import 'src/screens/faq_screen.dart'; // Import the FAQ screen
 import 'src/screens/maker_flow/maker_amount_form.dart';
 import 'src/screens/maker_flow/maker_conflict_screen.dart'; // Import the maker conflict screen
+import 'src/screens/neko_management_screen.dart';
 import 'src/screens/offer_details_screen.dart';
 import 'src/screens/offer_list_screen.dart';
 import 'src/screens/role_selection_screen.dart';
+import 'src/screens/settings_screen.dart';
 import 'src/screens/taker_flow/taker_conflict_screen.dart'; // Import the taker conflict screen
 import 'src/screens/taker_flow/taker_submit_blik_screen.dart';
 import 'src/screens/taker_flow/taker_wait_confirmation_screen.dart';
-import 'src/utils/platform_detection.dart'; // Import our platform detection utility
-import 'src/screens/coordinator_management_screen.dart';
-import 'src/screens/settings_screen.dart';
-import 'src/screens/neko_management_screen.dart';
 import 'src/screens/wallet_screen.dart';
+import 'src/utils/platform_detection.dart'; // Import our platform detection utility
 
 final double kMakerFeePercentage = 0.5;
 final double kTakerFeePercentage = 0.5;
@@ -75,12 +73,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       ShellRoute(
         builder: (context, state, child) {
-          // Determine page title and back button visibility from route
           String? pageTitle;
           bool hideBackButton = false;
           bool showBackButton = false;
 
-          // Extract route-specific settings from state
           final path = state.uri.path;
           if (path == FaqScreen.routeName) {
             hideBackButton = true;
@@ -324,7 +320,6 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 }
 
-// AppScaffold to maintain consistent UI structure with AppBar and footer
 class AppScaffold extends ConsumerStatefulWidget {
   final Widget body;
   final String? pageTitle; // Optional page title
@@ -364,202 +359,6 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
   @override
   void dispose() {
     super.dispose();
-  }
-
-  void _showGenerateNewKeyDialog() {
-    final keyService = ref.read(keyServiceProvider);
-    final activeOffer = ref.read(activeOfferProvider);
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(t.generateNewKey.title),
-          content: Text(activeOffer != null ? t.generateNewKey.errors.activeOffer : t.generateNewKey.description),
-          actions: <Widget>[
-            TextButton(child: Text(t.common.buttons.cancel), onPressed: () => Navigator.of(context).pop()),
-            if (activeOffer == null)
-              TextButton(
-                child: Text(t.generateNewKey.buttons.generate),
-                onPressed: () async {
-                  try {
-                    await keyService.generateNewKeyPair();
-
-                    // Clear the active offer when restoring a new key
-                    await ref.read(activeOfferProvider.notifier).setActiveOffer(null);
-
-                    // Invalidate providers to force re-initialization
-                    ref.invalidate(keyServiceProvider);
-                    ref.invalidate(apiServiceProvider);
-                    ref.invalidate(initializedApiServiceProvider);
-                    ref.invalidate(publicKeyProvider);
-                    ref.invalidate(discoveredCoordinatorsProvider);
-
-                    // Show loading indicator
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const Center(child: CircularProgressIndicator()),
-                    );
-
-                    // Re-initialize services
-                    await ref.read(initializedApiServiceProvider.future);
-
-                    Navigator.of(context).pop(); // Close loading dialog
-                    Navigator.of(context).pop(); // Close generate key dialog
-
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(t.generateNewKey.feedback.success)));
-                  } catch (e) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('${t.generateNewKey.errors.failed}: ${e.toString()}')));
-                  }
-                },
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  // --- Backup and Restore Dialogs ---
-
-  void _showBackupDialog() {
-    final keyService = ref.read(keyServiceProvider);
-    final privateKey = keyService.privateKeyHex;
-    if (privateKey == null) return;
-
-    bool isRevealed = false;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text(t.backup.title),
-              content: SingleChildScrollView(
-                child: ListBody(
-                  children: <Widget>[
-                    Text(t.backup.description),
-                    const SizedBox(height: 16),
-                    SelectableText(
-                      isRevealed
-                          ? Nip19.encodePrivateKey(privateKey)
-                          : '****************************************************************',
-                      style: const TextStyle(fontFamily: 'monospace'),
-                    ),
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton.icon(
-                  icon: Icon(isRevealed ? Icons.visibility_off : Icons.visibility),
-                  label: Text(isRevealed ? t.common.buttons.hide : t.common.buttons.reveal),
-                  onPressed: () {
-                    setState(() {
-                      isRevealed = !isRevealed;
-                    });
-                  },
-                ),
-                TextButton.icon(
-                  icon: const Icon(Icons.copy),
-                  label: Text(t.common.buttons.copy),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: Nip19.encodePrivateKey(privateKey)));
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.backup.feedback.copied)));
-                  },
-                ),
-                TextButton(
-                  child: Text(t.common.buttons.close),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showRestoreDialog() {
-    final keyService = ref.read(keyServiceProvider);
-    final TextEditingController privateKeyController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(t.restore.title),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: privateKeyController,
-              decoration: InputDecoration(labelText: t.restore.labels.privateKey, hintText: 'e.g., nsec1...'),
-              validator: (value) {
-                if (value == null || !Nip19.isPrivateKey(value)) {
-                  return t.restore.errors.invalidKey;
-                }
-                return null;
-              },
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text(t.common.buttons.cancel),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text(t.restore.buttons.restore),
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  try {
-                    String pKey = Nip19.decode(privateKeyController.text);
-                    await keyService.savePrivateKey(pKey);
-
-                    // Clear the active offer when restoring a new key
-                    await ref.read(activeOfferProvider.notifier).setActiveOffer(null);
-
-                    // Invalidate providers to force re-initialization
-                    ref.invalidate(keyServiceProvider);
-                    ref.invalidate(apiServiceProvider);
-                    ref.invalidate(initializedApiServiceProvider);
-                    ref.invalidate(publicKeyProvider);
-                    ref.invalidate(discoveredCoordinatorsProvider);
-
-                    // Show loading indicator
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const Center(child: CircularProgressIndicator()),
-                    );
-
-                    // Re-initialize services
-                    await ref.read(initializedApiServiceProvider.future);
-
-                    Navigator.of(context).pop(); // Close loading dialog
-                    Navigator.of(context).pop(); // Close restore dialog
-
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.restore.feedback.success)));
-                  } catch (e) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('${t.restore.errors.failed}: ${e.toString()}')));
-                  }
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Widget _buildNekoDrawer(BuildContext context, AsyncValue<String?> publicKeyAsync) {
@@ -830,7 +629,12 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
           kDebugMode ? SizedBox(width: 40) : Container(),
         ],
       ),
-      body: _buildBody(widget.body),
+      body:  Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 625), // Adjust this value
+          child: _buildBody(widget.body),
+        )
+      ),
       endDrawer: _buildNekoDrawer(context, publicKeyAsync),
       bottomNavigationBar: SizedBox(
         height: 70,
@@ -858,7 +662,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                           padding: const EdgeInsets.only(left: 8.0),
                           child: InkWell(
                             // onTap: () async {
-                            //   final Uri url = Uri.parse('https://github.com/bitblik-user/client/releases');
+                            //   final Uri url = Uri.parse('https://github.com/bit-blik/client/releases');
                             //   await launchUrl(url, mode: LaunchMode.externalApplication);
                             // },
                             child: Text(
@@ -870,7 +674,7 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
                         // const SizedBox(width: 16),
                         // InkWell(
                         //   onTap: () async {
-                        //     final Uri url = Uri.parse('https://github.com/bitblik-user/client');
+                        //     final Uri url = Uri.parse('https://github.com/bit-blik/client');
                         //     await launchUrl(url, mode: LaunchMode.externalApplication);
                         //   },
                         //   child: Image.asset('assets/github.png', width: 20, height: 20),
@@ -930,36 +734,9 @@ class _AppScaffoldState extends ConsumerState<AppScaffold> {
 
   // Body builder that handles both direct routes and role-based content
   Widget _buildBody(Widget directChild) {
-    // If we're displaying a direct route's content, show that
     if (directChild is! RoleSelectionScreen) {
       return directChild;
     }
-
-    // Otherwise, use the role-based logic for default screens
-    // switch (role) {
-    //   case AppRole.maker:
-    //     return const MakerAmountForm();
-    //   case AppRole.taker:
-    //     final activeOffer = ref.watch(activeOfferProvider);
-    //     if (activeOffer == null) {
-    //       return const OfferListScreen();
-    //     } else {
-    //       if (activeOffer.status == OfferStatus.reserved.name) {
-    //         return TakerSubmitBlikScreen(initialOffer: activeOffer);
-    //       } else if (activeOffer.status == OfferStatus.blikReceived.name ||
-    //           activeOffer.status == OfferStatus.blikSentToMaker.name ||
-    //           activeOffer.status == OfferStatus.makerConfirmed.name) {
-    //         return TakerWaitConfirmationScreen(offer: activeOffer);
-    //       } else {
-    //         print(
-    //           "[AppScaffold] Taker role active but offer status (${activeOffer.status}) not suitable for flow screens. Showing OfferListScreen.",
-    //         );
-    //         return const OfferListScreen();
-    //       }
-    //     }
-    //   case AppRole.none:
-    //     return const RoleSelectionScreen();
-    // }
     return const RoleSelectionScreen();
   }
 }
