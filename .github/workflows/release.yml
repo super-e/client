@@ -42,11 +42,9 @@ jobs:
           name: "app-x86_64-release.apk"
           path: "build/app/outputs/flutter-apk/app-x86_64-release.apk"
       - name: Debug API call
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
           curl -v -X POST \
-            -H "Authorization: token $GH_TOKEN" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/${{ github.repository }}/releases \
             -d '{"tag_name":"${{ github.ref_name }}","name":"Release ${{ github.ref_name }}","draft":false,"prerelease":false}'
