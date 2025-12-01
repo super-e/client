@@ -37,8 +37,14 @@ class _MakerPayInvoiceScreenState extends ConsumerState<MakerPayInvoiceScreen> {
 
     try {
       checkWeblnSupport((supported) {
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(content: Text('checking webLN support')),
+        // ); // Can be localized if needed
         // print("!!!!!!!!!!!!!!! isWallet: $isWallet, supported: $supported");
         if (mounted) {
+          // ScaffoldMessenger.of(context).showSnackBar(
+          //   SnackBar(content: Text('webLN support: $supported')),
+          // ); // Can be localized if needed
           setState(() {
             isWallet = supported;
           });
@@ -109,17 +115,19 @@ class _MakerPayInvoiceScreenState extends ConsumerState<MakerPayInvoiceScreen> {
 
   // --- Intent/URL Launching ---
   Future<void> _launchLightningUrl(String invoice) async {
-    if (kIsWeb && isWallet) {
+    if (kIsWeb) {
       Logger.log.d("!! launch lightning URL -> sending invoice");
-
+      bool webLnSuccess = true;
       await sendWeblnPayment(invoice).then((_) {}).catchError((e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('WebLN payment failed: $e')),
-          ); // Can be localized if needed
-        }
+        // if (mounted) {
+        //   ScaffoldMessenger.of(context).showSnackBar(
+        //     SnackBar(content: Text('WebLN payment failed: $e')),
+        //   ); // Can be localized if needed
+        // }
+        webLnSuccess = false;
       });
-      return;
+      if (webLnSuccess) {
+        return; }
     }
 
     final link = 'lightning:$invoice';
