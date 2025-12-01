@@ -109,7 +109,7 @@ class _MakerPayInvoiceScreenState extends ConsumerState<MakerPayInvoiceScreen> {
 
   // --- Intent/URL Launching ---
   Future<void> _launchLightningUrl(String invoice) async {
-    if (kIsWeb) {
+    if (kIsWeb && isWallet) {
       Logger.log.d("!! launch lightning URL -> sending invoice");
 
       await sendWeblnPayment(invoice).then((_) {}).catchError((e) {
@@ -133,20 +133,20 @@ class _MakerPayInvoiceScreenState extends ConsumerState<MakerPayInvoiceScreen> {
         await intent.launch();
       } else {
         final url = Uri.parse(link);
-        if (await canLaunchUrl(url)) {
+        // if (await canLaunchUrl(url)) {
           await launchUrl(url, mode: LaunchMode.externalApplication);
-        } else {
-          if (kDebugMode) {
-            Logger.log.w('Could not launch $link');
-          }
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(t.maker.payInvoice.errors.couldNotOpenApp),
-              ),
-            );
-          }
-        }
+        // } else {
+        //   if (kDebugMode) {
+        //     Logger.log.w('Could not launch $link');
+        //   }
+        //   if (mounted) {
+        //     ScaffoldMessenger.of(context).showSnackBar(
+        //       SnackBar(
+        //         content: Text(t.maker.payInvoice.errors.couldNotOpenApp),
+        //       ),
+        //     );
+        //   }
+        // }
       }
     } catch (e) {
       Logger.log.e('Error launching lightning URL: $e');
