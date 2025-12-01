@@ -1,3 +1,7 @@
+## 0.4.0
+- initial NWC wallet support
+- fix offer's list state update bug
+
 ## 0.3.0
 
 - use nostr relays & websockets for client/coordinator communication
