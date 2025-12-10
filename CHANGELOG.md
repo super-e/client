@@ -1,3 +1,8 @@
+## 0.4.3
+- 🇮🇹 italian translation
+- improve FAQ
+- don't check coordinator health immediately, assume healthy
+
 ## 0.4.0
 - initial NWC wallet support
 - fix offer's list state update bug
