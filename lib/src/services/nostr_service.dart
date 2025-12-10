@@ -1175,6 +1175,7 @@ class NostrService {
       
       if (isDefaultWhitelisted || _shouldIncludeCoordinator(pubkey)) {
         _discoveredCoordinators[pubkey] = coordinator;
+        _discoveredCoordinators[pubkey]!.responsive = true;
         // Cache coordinator info immediately when discovered
         final coordinatorInfo = coordinator.toCoordinatorInfo();
         _coordinatorInfoCache[pubkey] = coordinatorInfo;

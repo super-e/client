@@ -377,7 +377,7 @@ class DiscoveredCoordinatorsNotifier
 
       // After starting discovery, start periodic refresh and load coordinators
       _startPeriodicRefresh();
-      await _loadCoordinators();
+      await _loadCoordinators(skipHealthChecks: true);
     } catch (e, stack) {
       Logger.log.e('Error in _startDiscovery: $e');
       state = AsyncValue.error(e, stack);
