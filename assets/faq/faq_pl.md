@@ -56,12 +56,34 @@ System pozwala na status `invalidBlik`. Jeśli Maker próbuje użyć kodu BLIK i
 - **Prywatność:** Twoje klucze publiczne są przechowywane przez koordynatora. Szczegóły transakcji są również przechowywane w bazie danych. Dla lepszej prywatności powinieneś generować nową parę kluczy dla każdej transakcji.
 #### Czy koordynator jest custodialny?
 Koordynator nie jest custodialny w tradycyjnym sensie dla *końcowego* rozliczenia Bitcoin dla Taker, ponieważ wypłaca na invoice Taker. Jednak podczas okresu escrow, środki Maker są zablokowane w hold invoice, którą koordynator ma moc rozliczyć (używając preimage) lub polecić anulowanie. Więc istnieje tymczasowy element kontroli przez koordynatora nad zablokowanymi środkami. Zarówno Maker, jak i Taker ufają koordynatorowi, że uwolni te środki zgodnie z protokołem.
-#### Co motywuje Maker do uczciwego działania?
-Ponieważ kwota Bitcoin jest trzymana w hold invoice Lightning Network, Maker (sprzedawca) jest zmotywowany do uczciwego działania. Bez dowodów przeciwnych invoice nie zostanie zwrócony do Maker.
-Ponieważ hold invoices powinny być trzymane tylko przez krótki okres (zazwyczaj kilka godzin), invoice zostanie rozliczony, a środki będą trzymane przez koordynatora do czasu, gdy Taker dostarczy dowody do rozwiązania sporu.
-#### Co motywuje Taker do uczciwego działania?
-Jeśli obie strony sygnalizują konflikt, Taker musi dostarczyć dowody, że płatność BLIK została pobrana z jego konta bankowego, będzie to rozwiązane ręcznie przez człowieka odpowiedzialnego za koordynatora. Niedostarczenie takich dowodów spowoduje, że Taker nie otrzyma Bitcoin, a po 48h sats wrócą do Maker.
-Obecnie nie ma systemu kaucji, aby zachęcić Taker do nieprzejmowania czasu koordynatora próbami rozwiązania sporu, ale zostanie to wdrożone w najbliższej przyszłości.
+
+#### Co motywuje Makera do uczciwego działania?
+
+Maker zablokował już swoje Bitcoin w fakturze wstrzymującej Lightning Network przed otrzymaniem kodu BLIK. To tworzy silną motywację do uczciwego dokończenia transakcji:
+
+- **Jeśli Maker potwierdzi otrzymanie ważnej płatności BLIK:** Koordynator rozlicza fakturę wstrzymującą, uwalniając Bitcoin dla Takera. Maker otrzymuje swoje fiat—wszyscy są zadowoleni.
+- **Jeśli Maker fałszywie zaprzeczy otrzymaniu ważnej płatności BLIK:** Taker może otworzyć spór i dostarczyć dowód bankowy potwierdzający, że płatność została dokonana. Jeśli koordynator przyzna rację Takerowi, faktura wstrzymująca zostanie rozliczona mimo wszystko, a Maker traci swoje Bitcoin bez możliwości odwołania.
+- **Jeśli Maker porzuci transakcję lub przestanie odpowiadać:** Koordynator może rozliczyć fakturę na korzyść Takera (jeśli istnieje dowód płatności) lub, w niejednoznacznych przypadkach, utrzymać środki zablokowane do czasu rozwiązania sporu.
+
+Ponieważ faktury typu `hold invoice` mają ograniczone okno ważności (zazwyczaj kilka godzin), Maker nie może zwlekać w nieskończoność. Musi albo uczciwie dokończyć transakcję, albo ryzykować utratę swoich Bitcoin w procesie rozwiązywania sporów.
+
+Ponieważ Bitcoin są przechowywane w fakturze wstrzymującej Lightning Network, Maker (sprzedawca) jest motywowany do uczciwego działania. Bez dowodów przeciwnych faktura nie zostanie zwrócona Makerowi.
+Ponieważ faktury wstrzymujące powinny być utrzymywane tylko przez krótki okres (zazwyczaj kilka godzin), faktura zostanie rozliczona, a środki będą przechowywane przez koordynatora do czasu, gdy Taker dostarczy dowody w celu rozwiązania sporu.
+
+
+#### Co motywuje Takera do uczciwego działania?
+
+Taker przystępuje do transakcji dopiero po tym, jak Maker zablokował już Bitcoin w fakturze wstrzymującej. Chociaż chroni to Takera przed Makerem, który może nie mieć środków, Taker również ma silne motywacje do uczciwego działania:
+
+- **Jeśli Taker poda ważny kod BLIK i potwierdzi płatność:** Maker otrzymuje fiat, potwierdza odbiór, a koordynator uwalnia Bitcoin dla Takera. Wszyscy są zadowoleni.
+- **Jeśli Taker poda nieważny lub wygasły kod BLIK:** Maker nie może dokończyć płatności i nie potwierdzi odbioru. Transakcja nie dochodzi do skutku, a Bitcoin Makera jest zwracany przez anulowanie faktury wstrzymującej. Taker nie otrzymuje nic.
+- **Jeśli Taker fałszywie twierdzi, że zapłacił:** W sporze Taker musi dostarczyć dowód bankowy potwierdzający, że płatność BLIK została pobrana z jego konta. Bez takiego dowodu koordynator anuluje fakturę wstrzymującą po 48 godzinach, zwracając Bitcoin Makerowi. Taker nic nie zyskuje i marnuje czas wszystkich.
+- **Jeśli Taker porzuci transakcję po zarezerwowaniu oferty:** Oferta w końcu wygasa lub zostaje anulowana, a Bitcoin Makera jest zwracany. Taker nic nie zyskuje.
+
+Ponieważ Taker musi dostarczyć weryfikowalne dowody w każdym sporze, nie ma realnej drogi do oszukańczego zdobycia Bitcoin. Nieuczciwy Taker jedynie marnuje czas—swój własny, Makera i koordynatora.
+
+> **Uwaga:** System kaucji dla Takerów jest planowany do przyszłej implementacji, który doda finansową karę dla Takerów marnujących czas koordynatora błahymi sporami lub porzuconymi transakcjami.
+
 #### Co motywuje koordynatora do uczciwego działania?
 Aby zostać zaakceptowanym jako koordynator BitBlik przez oprogramowanie klienta, koordynator musi podać klucz nostr (profil), który użytkownicy mogą tagować i zgłaszać złe doświadczenia z danym koordynatorem. Przed wyborem konkretnego koordynatora sprawdź jego reputację na Nostr. Biorąc pod uwagę odporność na censurę Nostr, każdy może zalać lub zamieścić nieprawidłowe raporty, więc użyj klienta, który używa Web of Trust do określenia reputacji raportów każdego użytkownika. Najlepiej wybierz koordynatora, który ma dobrą reputację w twojej społeczności Bitcoin. Ostatecznie, ty jako użytkownik tego oprogramowania jesteś odpowiedzialny za koordynatora, którego wybierzesz. To nie jest platforma ani usługa i nie bierzemy odpowiedzialności za działania żadnego koordynatora.
 
